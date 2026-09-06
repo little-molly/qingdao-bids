@@ -1,0 +1,36 @@
+name: 青岛招标每日监控
+
+on:
+  schedule:
+    # UTC 00:00 = 北京时间 08:00（GitHub 定时触发可能延迟 5~30 分钟，属正常）
+    - cron: '0 0 * * *'
+  workflow_dispatch: {}   # 支持在 Actions 页面手动触发测试
+
+permissions:
+  contents: write         # 允许把 state.json 和日报提交回仓库（去重基线持久化）
+
+concurrency:
+  group: daily-bid
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 抓取三来源并推送手机
+        env:
+          BARK_URL: ${{ secrets.BARK_URL }}          # iOS Bark，如 https://api.day.app/xxxxx
+          NTFY_URL: ${{ secrets.NTFY_URL }}          # ntfy，如 https://ntfy.sh/你的topic
+          WECOM_WEBHOOK: ${{ secrets.WECOM_WEBHOOK }}# 企业微信群机器人 webhook（三选一即可）
+        run: python3 fetch_and_report.py
+
+      - name: 提交 state 与日报回仓库
+        run: |
+          git config user.name "bid-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add state.json 20*.md
+          git diff --cached --quiet || git commit -m "日报 $(TZ=Asia/Shanghai date +%F)"
+          git push
