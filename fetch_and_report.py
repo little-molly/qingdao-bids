@@ -12,7 +12,7 @@ v3 修复：
 已知限制：政采 API（zfcg.qingdao.gov.cn:58060，103.150.25.50）对境外网络层不可达，
 GitHub Actions 无法访问该来源；公资交易/军采视境外可达性而定（跑一次看结果）。
 """
-import json, os, re, sys, time, ssl, datetime as dt
+import json, os, re, sys, time, ssl, subprocess, datetime as dt
 import urllib.parse as up
 from urllib.parse import quote
 from urllib.request import Request, urlopen
@@ -189,6 +189,26 @@ def push_notify(title, body, click_url=None):
             results.append(f"wecom:fail({type(e).__name__})")
     return results
 
+# ---------- 报告/状态回传 GitHub（服务器部署时用，Actions 环境下本身由 workflow 提交） ----------
+def sync_to_github(rep_path):
+    """把当日报告与 state.json 提交回 GitHub 仓库（需 /opt/qingdao-bids 为 git 仓库 + deploy key）"""
+    try:
+        base = os.path.dirname(os.path.abspath(__file__))
+        if not os.path.isdir(os.path.join(base, ".git")):
+            return "git:skip(非仓库)"
+        env = dict(os.environ)
+        env["GIT_SSH_COMMAND"] = f"ssh -i {base}/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
+        def git(*args):
+            return subprocess.run(["git", *args], cwd=base, env=env,
+                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=90)
+        git("pull", "--rebase", "origin", "main")
+        git("add", os.path.basename(rep_path), "state.json")
+        git("commit", "-m", "日报 " + dt.date.today().isoformat())
+        r = git("push", "origin", "main")
+        return "git:ok" if r.returncode == 0 else "git:fail(" + r.stderr.decode("utf-8", "replace").strip()[:80] + ")"
+    except Exception as e:
+        return f"git:fail({type(e).__name__})"
+
 def build_summary(ccgp, ggzy, plap, errs):
     prio = {"招标公告": 0, "采购公告": 1, "更正公告": 2, "中标公告": 3, "成交公告": 4, "结果公示": 5}
     def rank(it):
@@ -253,14 +273,16 @@ def run():
     body = (f"政采 {len(ccgp)} ｜公资 {len(ggzy)} ｜军采 {len(plap)}\n"
             + build_summary(ccgp, ggzy, plap, (e1, e2, e3))
             + "\n（点击通知打开完整报告）")
-    pushes = push_notify(title, body, report_url) if total or any((e1, e2, e3)) else ["skip(无新增无异常)"]
+    force = os.environ.get("FORCE_PUSH") == "1"
+    pushes = push_notify(title, body, report_url) if (total or any((e1, e2, e3)) or force) else ["skip(无新增无异常)"]
+    sync = sync_to_github(rep_path)
 
     cutoff_seen = (dt.date.today() - dt.timedelta(days=30)).isoformat()
     state["seen"] = {k: v for k, v in seen.items() if v >= cutoff_seen}
     state["lastRun"] = NOW.strftime("%Y-%m-%d %H:%M:%S")
     json.dump(state, open(state_path, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     print(json.dumps({"total": total, "ccgp": len(ccgp), "ggzy": len(ggzy), "plap": len(plap),
-                      "errors": [e for e in (e1, e2, e3) if e], "push": pushes, "report": rep_path,
+                      "errors": [e for e in (e1, e2, e3) if e], "push": pushes, "sync": sync, "report": rep_path,
                       "sec": round(time.time() - t0, 1)}, ensure_ascii=False))
 
 if __name__ == "__main__":
