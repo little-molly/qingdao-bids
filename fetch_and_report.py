@@ -1,17 +1,20 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""青岛招标商机监控 - GitHub Actions 云端版
+"""青岛招标商机监控 v3 - GitHub Actions 云端版
 策略（2026-09-04 实测定型）：
   ccgp  逐词 subject 服务端检索（全历史按时间倒序） -> 本地 48h 过滤
   ggzy  无参分页 pageIndex=1..N 拉最新列表（按时间倒序） -> 本地关键词+48h 过滤
   plap  逐词 title 服务端检索（每词最新 20 条） -> 本地 48h 过滤
-云端增强：
-  - 时间统一按北京时间（GitHub runner 是 UTC）
-  - 报告生成后按 secrets 推送手机（Bark / ntfy / 企业微信，配哪个用哪个，都没配则跳过）
-  - state.json 由 workflow 提交回仓库，实现跨天去重持久化
+v3 修复：
+  - 军采 quote NameError（import 缺失）
+  - Bark 通知点击跳转当日报告网页
+  - 异常信息标注疑似境外受限
+已知限制：政采 API（zfcg.qingdao.gov.cn:58060，103.150.25.50）对境外网络层不可达，
+GitHub Actions 无法访问该来源；公资交易/军采视境外可达性而定（跑一次看结果）。
 """
 import json, os, re, sys, time, ssl, datetime as dt
 import urllib.parse as up
+from urllib.parse import quote
 from urllib.request import Request, urlopen
 
 BASE = os.path.dirname(os.path.abspath(__file__))
@@ -90,6 +93,7 @@ def fetch_ccgp():
         for it in items: it["kw"] = "+".join(it["kw"])
     except Exception as e:
         err = f"{type(e).__name__}: {e}"
+        if "unreachable" in str(e) or "timed out" in str(e): err += "（疑似境外网络受限）"
     return items, err
 
 def fetch_ggzy():
@@ -115,6 +119,7 @@ def fetch_ggzy():
             time.sleep(0.8)
     except Exception as e:
         err = f"{type(e).__name__}: {e}"
+        if "unreachable" in str(e) or "timed out" in str(e): err += "（疑似境外网络受限）"
     return items, err
 
 PLAP = "https://www.plap.mil.cn"
@@ -146,26 +151,29 @@ def fetch_plap():
         for it in items: it["kw"] = "+".join(it["kw"])
     except Exception as e:
         err = f"{type(e).__name__}: {e}"
+        if "unreachable" in str(e) or "timed out" in str(e): err += "（疑似境外网络受限）"
     return items, err
 
 # ---------- 手机推送（配了哪个 secret 就用哪个，可同时配多个） ----------
-def push_notify(title, body):
+def push_notify(title, body, click_url=None):
     results = []
     bark = os.environ.get("BARK_URL", "").strip().rstrip("/")
     ntfy = os.environ.get("NTFY_URL", "").strip()
     wecom = os.environ.get("WECOM_WEBHOOK", "").strip()
     if bark:
         try:
-            fetch(f"{bark}/{up.quote(title)}/{up.quote(body[:500])}?group=qingdao-bid", timeout=15)
+            q = "?group=qingdao-bid"
+            if click_url: q += "&url=" + up.quote(click_url, safe="")
+            fetch(f"{bark}/{up.quote(title)}/{up.quote(body[:500])}{q}", timeout=15)
             results.append("bark:ok")
         except Exception as e:
             results.append(f"bark:fail({type(e).__name__})")
     if ntfy:
         try:
-            payload = json.dumps({"topic": ntfy.rstrip("/").split("/")[-1],
-                                  "title": title, "message": body[:900]}).encode()
-            with urlopen(Request(ntfy, data=payload, headers={"Content-Type": "application/json"}),
-                         timeout=15, context=CTX) as r:
+            payload = {"topic": ntfy.rstrip("/").split("/")[-1], "title": title, "message": body[:900]}
+            if click_url: payload["click"] = click_url
+            with urlopen(Request(ntfy, data=json.dumps(payload).encode(),
+                                 headers={"Content-Type": "application/json"}), timeout=15, context=CTX) as r:
                 r.read()
             results.append("ntfy:ok")
         except Exception as e:
@@ -238,12 +246,14 @@ def run():
     rep_path = os.path.join(BASE, dt.date.today().isoformat() + ".md")
     open(rep_path, "w", encoding="utf-8").write("\n".join(rep))
 
-    # 推送手机
+    # 推送手机（点击通知跳转当日报告网页）
+    repo = os.environ.get("GITHUB_REPOSITORY", "little-molly/qingdao-bids")
+    report_url = f"https://github.com/{repo}/blob/main/{dt.date.today().isoformat()}.md"
     title = f"青岛招标日报 {dt.date.today().strftime('%m-%d')}｜新增 {total} 条"
     body = (f"政采 {len(ccgp)} ｜公资 {len(ggzy)} ｜军采 {len(plap)}\n"
             + build_summary(ccgp, ggzy, plap, (e1, e2, e3))
-            + f"\n（完整报告见仓库 {dt.date.today().isoformat()}.md）")
-    pushes = push_notify(title, body) if total or any((e1, e2, e3)) else ["skip(无新增无异常)"]
+            + "\n（点击通知打开完整报告）")
+    pushes = push_notify(title, body, report_url) if total or any((e1, e2, e3)) else ["skip(无新增无异常)"]
 
     cutoff_seen = (dt.date.today() - dt.timedelta(days=30)).isoformat()
     state["seen"] = {k: v for k, v in seen.items() if v >= cutoff_seen}
