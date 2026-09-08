@@ -1,5 +1,5 @@
 {
- "lastRun": "2026-09-07 08:00:01",
+ "lastRun": "2026-09-07 20:04:29",
  "seen": {
   "plap:httpswwwplapmilcnsitejuncaiggxxinfo20268a1d04c8a066c0fa01a06a1e43a12577html": "2026-09-04",
   "plap:httpswwwplapmilcnsitejuncaiggxxinfo20268a1d037aa061784b01a065298aab30d1html": "2026-09-04",
@@ -529,7 +529,9 @@
   "plap:httpswwwplapmilcnfreecmssitejuncaiggxxinfo20268a1d03dba047824201a047a56cec091fhtml": "2026-09-06",
   "plap:httpswwwplapmilcnfreecmssitejuncaiggxxinfo20268a1d02cca05c79b801a060ee965a4620html": "2026-09-07",
   "plap:httpswwwplapmilcnfreecmssitejuncaiggxxinfo20268a1d0448a0573b0501a05a63febf4660html": "2026-09-07",
-  "plap:httpswwwplapmilcnfreecmssitejuncaiggxxinfo20268a1d0362a0559fec01a0566742be142dhtml": "2026-09-07"
+  "plap:httpswwwplapmilcnfreecmssitejuncaiggxxinfo20268a1d0362a0559fec01a0566742be142dhtml": "2026-09-07",
+  "plap:httpswwwplapmilcnfreecmssitejuncaiggxxinfo20268a1d02d4a06c025901a07962177330e1html": "2026-09-07",
+  "plap:httpswwwplapmilcnfreecmssitejuncaiggxxinfo20268a1d04d7a06a5b7d01a06a73360b0940html": "2026-09-07"
  },
  "note": "seen 键格式：来源:详情URL或id；值为首次记录日期 YYYY-MM-DD；定期清理 30 天前的记录"
 }
