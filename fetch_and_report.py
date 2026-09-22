@@ -10,6 +10,11 @@ v3.6：
   - 军采详情链接补 /freecms 前缀（修复 404）
   - TEST_MODE 测试模式：去时间限制，每源最多 60 条，输出 docs/test.html
   - 多接收人推送（receivers.json）+ 自动重试
+v3.7.2（2026-09-22）：
+  - 【重要】政采抓取放开栏目限制（原仅 0303 采购公告，改为全部栏目）——修复“采购意向/需求公示/中标成交等类型的新公告被栏目过滤挡掉”的漏抓问题
+  - 修复公资网改版导致的解析失效：兼容新链接（webTransaction/Announcement/details），详情页 URL 统一为 ggzy.qingdao.gov.cn 域名
+  - 政采增加泛词补充扫描（防个别关键词检索索引漏召回）；公告类型识别扩展（采购意向/需求公示/验收等）
+  - 日报站新增「往期日报」导航；时间文案修正：08:00 -> 11:00
 """
 import json, os, re, sys, time, ssl, subprocess, datetime as dt
 import urllib.parse as up
@@ -34,9 +39,10 @@ def load_keywords():
     return list(DEFAULT_KEYWORDS)
 
 KEYWORDS = load_keywords()
-WINDOW_HOURS = 24 * 7          # 统计窗口：7 天
+WINDOW_HOURS = 48              # 统计窗口：48 小时（2026-09-07 按需求调整）
 GGZY_PAGES = 8                 # 公资交易列表分页数（每页约 8-10 条）
 PLAP_MAX_PAGES = 3             # 军采逐词检索最多翻页数（每页 20 条）
+CCGP_SWEEP = ("采购", "项目", "公告", "工程", "设备", "服务", "公示", "意向")   # v3.7.2 政采补充扫描词（拉最新列表，防检索索引漏召回）
 ISSUE_BASE = dt.date(2026, 9, 4)   # 第一期日期（用于期数推算）
 RETENTION_DAYS = 90                # 数据保留期：三个月，超期自动清理（去重记录/历史日报页/历史报告）
 CTX = ssl.create_default_context(); CTX.check_hostname = False; CTX.verify_mode = ssl.CERT_NONE
@@ -73,13 +79,20 @@ def hits(title):
     return out
 
 def ptype(title):
-    for k in ["招标公告","更正公告","成交公告","中标公告","竞标公告","结果公示","废标公示","终止公告"]:
+    if "采购意向" in title: return "采购意向"
+    if "需求公示" in title: return "需求公示"
+    for k in ["招标公告","更正公告","成交公告","中标公告","竞标公告","结果公示","废标公示","终止公告","验收公告","合同公告"]:
         if k in title: return k
+    if "中标" in title or "成交" in title: return "成交公告"
+    if "废标" in title or "流标" in title: return "废标公示"
+    if "终止" in title: return "终止公告"
+    if "验收" in title: return "验收公告"
+    if "合同" in title: return "合同公告"
     return "采购公告"
 
 def type_group(t):
     """公告类型 -> 筛选组（与卡片徽章共用）"""
-    if "招标" in t or "采购公告" in t: return "zb"
+    if "招标" in t or "采购公告" in t or "意向" in t or "需求公示" in t: return "zb"
     if "更正" in t: return "gz"
     if "中标" in t or "成交" in t: return "cj"
     if "废标" in t or "流标" in t or "终止" in t: return "fb"
@@ -100,7 +113,7 @@ def fetch_ccgp():
     items, err = [], None
     try:
         for kw in KEYWORDS:
-            body = json.dumps({"subject": kw, "page": 1, "limit": 200, "colCode": "0303", "colCodes": None,
+            body = json.dumps({"subject": kw, "page": 1, "limit": 200, "colCode": None, "colCodes": None,
                                "sort": "-pdate", "area": None, "areaType": "city", "pdate": None,
                                "pdates": ["", ""], "unitName": None, "projectCode": None, "agentName": None,
                                "pdateType": None, "kindOf": None, "projectType": None}).encode()
@@ -116,11 +129,38 @@ def fetch_ccgp():
                               "date": t.strftime("%m-%d %H:%M"), "area": r.get("regionName") or "青岛",
                               "kw": h, "type": ptype(r["subject"])})
             time.sleep(0.5)
-        merged = {}
+        # v3.7.2 补充扫描：泛词拉最新多页列表，本地关键词+窗口过滤，并入后统一去重
+        for kw in CCGP_SWEEP:
+            for pg in (1, 2):
+                try:
+                    body = json.dumps({"subject": kw, "page": pg, "limit": 100, "colCode": None, "colCodes": None,
+                                       "sort": "-pdate", "area": None, "areaType": "city", "pdate": None,
+                                       "pdates": ["", ""], "unitName": None, "projectCode": None, "agentName": None,
+                                       "pdateType": None, "kindOf": None, "projectType": None}).encode()
+                    txt = fetch("http://zfcg.qingdao.gov.cn:58060/api/siteservice/free/qd/site-info/page",
+                                data=body, headers={"Content-Type": "application/json"})
+                    for r in json.loads(txt)["data"]["data"]["records"]:
+                        t = parse_time(r.get("pdate"))
+                        if not t or t < CUTOFF: continue
+                        h = hits(r.get("subject") or "")
+                        if not h: continue
+                        items.append({"title": r["subject"].strip(),
+                                      "url": "http://www.ccgp-qingdao.gov.cn/qdsite/#/read?id=" + r["id"],
+                                      "date": t.strftime("%m-%d %H:%M"), "area": r.get("regionName") or "青岛",
+                                      "kw": h, "type": ptype(r["subject"])})
+                    time.sleep(0.4)
+                except Exception:
+                    pass
+        by_url = {}
         for it in items:
             k = it["url"]
-            if k in merged: merged[k]["kw"] = sorted(set(merged[k]["kw"] + it["kw"]))
-            else: merged[k] = it
+            if k in by_url: by_url[k]["kw"] = sorted(set(by_url[k]["kw"] + it["kw"]))
+            else: by_url[k] = it
+        merged = {}
+        for it in by_url.values():
+            k2 = re.sub(r"\s+", "", it["title"]) + "|" + it["date"]   # v3.7.2 标题级去重（同公告多栏目副本）
+            if k2 in merged: merged[k2]["kw"] = sorted(set(merged[k2]["kw"] + it["kw"]))
+            else: merged[k2] = it
         items = list(merged.values())
         for it in items: it["kw"] = "+".join(it["kw"])
     except Exception as e:
@@ -135,7 +175,8 @@ def fetch_ggzy():
             html = fetch(f"https://ggzy.qingdao.gov.cn/Tradeinfo-GGGSList/0-0-0?pageIndex={pi}")
             oldest = None
             for seg in re.findall(r"<tr[\s\S]*?</tr>", html):
-                a = re.search(r'<a[^>]+href="(/TradeDetals-ZtbShow/[^"]+)"[^>]*title="([^"]{4,150})"', seg)
+                # v3.7.2：兼容改版后的新链接（webTransaction/Announcement/details）与旧链接（TradeDetals-ZtbShow）
+                a = re.search(r'<a[^>]+href="([^"]*(?:webTransaction/Announcement/details|TradeDetals-ZtbShow)[^"]*)"[^>]*title="([^"]{4,200})"', seg)
                 if not a: continue
                 d = re.search(r"(20\d\d-\d{2}-\d{2})", seg)
                 if not d: continue
@@ -143,8 +184,14 @@ def fetch_ggzy():
                 if ds < CUTOFF.strftime("%Y-%m-%d"): continue
                 h = hits(a.group(2))
                 if not h: continue
+                href = a.group(1).replace("&amp;", "&")
+                if "webTransaction/Announcement/details" in href:
+                    q = href.split("?", 1)[1] if "?" in href else ""
+                    url = "https://ggzy.qingdao.gov.cn/webTransaction/Announcement/details?" + q
+                else:
+                    url = "https://ggzy.qingdao.gov.cn" + href
                 items.append({"title": a.group(2).strip(),
-                              "url": "https://ggzy.qingdao.gov.cn" + a.group(1),
+                              "url": url,
                               "date": ds[5:], "area": "青岛",
                               "kw": "+".join(h), "type": ptype(a.group(2))})
             if not TEST_MODE and oldest and oldest < CUTOFF.strftime("%Y-%m-%d"): break
@@ -228,7 +275,8 @@ def push_all(title, body, click_url):
     return results
 
 def build_summary(ccgp, ggzy, plap, errs):
-    prio = {"招标公告": 0, "采购公告": 1, "更正公告": 2, "中标公告": 3, "成交公告": 4, "结果公示": 5}
+    prio = {"招标公告": 0, "竞标公告": 0, "采购公告": 1, "采购意向": 2, "需求公示": 3, "更正公告": 4,
+            "中标公告": 5, "成交公告": 5, "结果公示": 6, "废标公示": 6, "终止公告": 6, "验收公告": 7, "合同公告": 7}
     def rank(it):
         local = 0 if ("山东" in it["area"] or "青岛" in it["area"]) else 1
         t = next((v for k, v in prio.items() if k in it["type"]), 9)
@@ -404,7 +452,7 @@ def render_html(date_iso, sections, total, window_hours, gen_time, repo, test_mo
     o.append('<h1 class="mast-title">青岛招采日报' + ('<span class="mast-flag">测试模式 · 全历史样例</span>' if test_mode else '') + '</h1>')
     o.append('<div class="mast-rule" aria-hidden="true"><span class="rule-thick"></span><span class="rule-thin"></span></div>')
     o.append('<div class="mast-meta"><span><span class="num">' + _e(f"{d.year}年{d.month}月{d.day}日") + '</span> ' + week + '</span><span>总第 <span class="num">' + str(issue) + '</span> 期</span></div>')
-    o.append('<p class="mast-sub">本次收录 <strong class="num">' + str(total) + '</strong> 条招采动态 · 命中关键词 <strong class="num">' + str(len(KEYWORDS)) + '</strong> 个 · 每日 <span class="num">08:00</span> 更新</p>')
+    o.append('<p class="mast-sub">本次收录 <strong class="num">' + str(total) + '</strong> 条招采动态 · 命中关键词 <strong class="num">' + str(len(KEYWORDS)) + '</strong> 个 · 每日 <span class="num">11:00</span> 更新</p>')
     o.append('</div></header>')
     # toolbar
     o.append('<div class="toolbar"><div class="container toolbar-inner"><div class="chips" role="group" aria-label="按来源筛选">')
@@ -432,12 +480,19 @@ def render_html(date_iso, sections, total, window_hours, gen_time, repo, test_mo
                  + '<div><dt>' + TAG_SVG + '命中关键词</dt><dd>' + kws + '</dd></div></dl>')
         o.append('</article>')
     o.append('</div>')
-    o.append('<div class="empty" id="emptyState" role="status" hidden>' + SEARCH_SVG + '<p class="empty-title">该分类下暂无公告</p><p>可切换其他类型查看，或明天 08:00 再来看更新。</p></div>')
+    o.append('<div class="empty" id="emptyState" role="status" hidden>' + SEARCH_SVG + '<p class="empty-title">该分类下暂无公告</p><p>可切换其他类型查看，或明天 11:00 再来看更新。</p></div>')
     o.append('</div></section></main>')
     # footer
     o.append('<footer class="pagefoot"><div class="container"><div class="foot-brand">' + SEAL_SVG.replace('class="seal"', 'class="seal" width="26" height="26"') + '<span class="foot-logo">青岛招采日报</span></div>')
-    o.append('<p class="foot-tag">每天 08:00，一分钟读完青岛招采动态。</p>')
+    o.append('<p class="foot-tag">每天 11:00，一分钟读完青岛招采动态。</p>')
     o.append('<div class="foot-base"><span>© 2026 青岛招采日报</span><span>数据来源：青岛市政府采购网 · 青岛市公共资源交易网 · 军队采购网</span><span>生成于 <span class="num">' + _e(gen_time) + '</span>（北京）</span></div>')
+    # v3.7.2 往期日报导航
+    try:
+        past = sorted([fn for fn in os.listdir(os.path.join(BASE, "docs")) if re.fullmatch(r"20\d\d-\d{2}-\d{2}\.html", fn)], reverse=True)[:30]
+    except Exception:
+        past = []
+    if past:
+        o.append('<div class="foot-past meta">往期日报：' + " · ".join('<a href="' + fn + '">' + fn[5:10] + '</a>' for fn in past) + '</div>')
     o.append('</div></footer>')
     # filter js
     o.append('<script>(function(){var chips=Array.prototype.slice.call(document.querySelectorAll(".chip"));'
@@ -499,10 +554,11 @@ def sync_to_github(rep_path):
         def git(*args):
             return subprocess.run(["git", *args], cwd=base, env=env,
                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=90)
-        git("pull", "--rebase", "origin", "main")
         git("add", "-A", "--", "docs/", "state.json")
         git("add", "-A", "--", "*.md")
         git("commit", "-m", "日报 " + dt.date.today().isoformat())
+        # 先提交本地变更，再变基到远端（避免 pull 时因未提交变更失败），最后推送
+        git("pull", "--rebase", "origin", "main")
         r = git("push", "origin", "main")
         return "git:ok" if r.returncode == 0 else "git:fail(" + r.stderr.decode("utf-8", "replace").strip()[:80] + ")"
     except Exception as e:
@@ -531,7 +587,7 @@ def run():
             if key in seen: continue
             seen[key] = dt.date.today().isoformat(); out.append(it)
         return out
-    ccgp, ggzy, plap = dedup("ccgp", ccgp), dedup("ggzy", ggzy), dedup("plap", plap)
+    # 去重逻辑已按需求移除（2026-09-07）：窗口内全部命中条目均进入日报与推送
     if TEST_MODE:
         ccgp, ggzy, plap = ccgp[:60], ggzy[:60], plap[:60]
     total = len(ccgp) + len(ggzy) + len(plap)
@@ -552,7 +608,7 @@ def run():
         elif not err:
             rep.append(f"近 {wtxt}无命中关键词的新公告。")
         rep.append("")
-    rep += ["---", f"*生成时间 {NOW.strftime('%Y-%m-%d %H:%M')}（北京）· 关键词 {len(KEYWORDS)} 个 · 阿里云每天 08:00 自动执行*"]
+    rep += ["---", f"*生成时间 {NOW.strftime('%Y-%m-%d %H:%M')}（北京）· 关键词 {len(KEYWORDS)} 个 · 阿里云每天 11:00 自动执行*"]
     rep_path = os.path.join(BASE, ("test-" if TEST_MODE else "") + dt.date.today().isoformat() + ".md")
     open(rep_path, "w", encoding="utf-8").write("\n".join(rep))
 
@@ -572,6 +628,7 @@ def run():
     force = os.environ.get("FORCE_PUSH") == "1"
     pushes = push_all(title, body, report_url) if (total or any((e1, e2, e3)) or force) else ["skip(无新增无异常)"]
     sync = sync_to_github(rep_path)
+
 
     if not TEST_MODE:
         cutoff_seen = (dt.date.today() - dt.timedelta(days=RETENTION_DAYS)).isoformat()
