@@ -15,6 +15,10 @@ v3.7.2（2026-09-22）：
   - 修复公资网改版导致的解析失效：兼容新链接（webTransaction/Announcement/details），详情页 URL 统一为 ggzy.qingdao.gov.cn 域名
   - 政采增加泛词补充扫描（防个别关键词检索索引漏召回）；公告类型识别扩展（采购意向/需求公示/验收等）
   - 日报站新增「往期日报」导航；时间文案修正：08:00 -> 11:00
+v3.7.3（2026-09-25）：
+  - 恢复跨天去重：每条公告只进一次日报/推送（按标题匹配，含跨栏目副本），消灭“同一条目多天重复推送”
+  - 新增杂讯过滤：行政/服务类（保险、复印纸等）与弱相关语境（“数字化”误命中医疗/材料类）
+  - 本地标记修正：“市级”区域也计入本地商机
 """
 import json, os, re, sys, time, ssl, subprocess, datetime as dt
 import urllib.parse as up
@@ -76,6 +80,20 @@ def hits(title):
             if kw in title: out.append(kw)
         elif kw.lower() in tl:
             out.append(kw)
+    return out
+
+# v3.7.3 杂讯过滤：行政/服务类标题（保险、复印纸等），以及弱相关语境（“数字化”误命中医疗/材料类）
+NOISE_RE = re.compile(r"保险|复印纸|印刷|公车|食材|食堂承包|车辆维修|公务用车|体检")
+WEAK_CTX_RE = re.compile(r"造影|X线|摄影|超声|采血|试剂|药品|药材|耗材|含能材料|病理|血站")
+
+def drop_noise(items):
+    out = []
+    for it in items:
+        t = it.get("title") or ""
+        kws = [k for k in (it.get("kw") or "").split("+") if k]
+        if NOISE_RE.search(t): continue
+        if kws and set(kws) <= {"数字化"} and WEAK_CTX_RE.search(t): continue
+        out.append(it)
     return out
 
 def ptype(title):
@@ -278,7 +296,7 @@ def build_summary(ccgp, ggzy, plap, errs):
     prio = {"招标公告": 0, "竞标公告": 0, "采购公告": 1, "采购意向": 2, "需求公示": 3, "更正公告": 4,
             "中标公告": 5, "成交公告": 5, "结果公示": 6, "废标公示": 6, "终止公告": 6, "验收公告": 7, "合同公告": 7}
     def rank(it):
-        local = 0 if ("山东" in it["area"] or "青岛" in it["area"]) else 1
+        local = 0 if ("山东" in it["area"] or "青岛" in it["area"] or "市级" in it["area"]) else 1
         t = next((v for k, v in prio.items() if k in it["type"]), 9)
         return (local, t)
     allit = sorted(ccgp + ggzy + plap, key=rank)
@@ -434,7 +452,7 @@ def render_html(date_iso, sections, total, window_hours, gen_time, repo, test_mo
     for sid, (name, lst, err) in zip(src_ids, sections):
         for it in lst:
             x = dict(it); x["src"] = src_short[sid]; x["srcid"] = sid; x["grp"] = type_group(it["type"])
-            x["local"] = ("山东" in it["area"] or "青岛" in it["area"])
+            x["local"] = ("山东" in it["area"] or "青岛" in it["area"] or "市级" in it["area"])
             allit.append(x)
     allit.sort(key=lambda x: x["date"], reverse=True)
     grp_count = {}
@@ -570,11 +588,11 @@ def run():
     cleaned = cleanup_old_data()
     if cleaned: log("清理过期数据: " + "、".join(map(str, cleaned)))
     log("1/3 青岛政府采购网（逐词检索）...")
-    ccgp, e1 = fetch_ccgp(); log(f"   -> {len(ccgp)} 条  err={e1}")
+    ccgp, e1 = fetch_ccgp(); ccgp = drop_noise(ccgp); log(f"   -> {len(ccgp)} 条  err={e1}")
     log("2/3 公共资源交易网（最新分页）...")
-    ggzy, e2 = fetch_ggzy(); log(f"   -> {len(ggzy)} 条  err={e2}")
+    ggzy, e2 = fetch_ggzy(); ggzy = drop_noise(ggzy); log(f"   -> {len(ggzy)} 条  err={e2}")
     log("3/3 军队采购网（逐词检索+翻页）...")
-    plap, e3 = fetch_plap(); log(f"   -> {len(plap)} 条  err={e3}")
+    plap, e3 = fetch_plap(); plap = drop_noise(plap); log(f"   -> {len(plap)} 条  err={e3}")
 
     state_path = os.path.join(BASE, "state.json")
     try: state = json.load(open(state_path, encoding="utf-8"))
@@ -583,11 +601,13 @@ def run():
     def dedup(src, lst):
         out = []
         for it in sorted(lst, key=lambda x: x["date"], reverse=True):
-            key = src + ":" + re.sub(r"[^A-Za-z0-9]", "", it["url"])[-100:]
+            key = src + ":" + re.sub(r"[^0-9A-Za-z\u4e00-\u9fff]", "", it["title"])   # v3.7.3 按标题去重（跨天/跨栏目副本）
             if key in seen: continue
             seen[key] = dt.date.today().isoformat(); out.append(it)
         return out
-    # 去重逻辑已按需求移除（2026-09-07）：窗口内全部命中条目均进入日报与推送
+    # v3.7.3：恢复跨天去重——每条公告只进一次日报与推送；测试模式除外
+    if not TEST_MODE:
+        ccgp = dedup("ccgp", ccgp); ggzy = dedup("ggzy", ggzy); plap = dedup("plap", plap)
     if TEST_MODE:
         ccgp, ggzy, plap = ccgp[:60], ggzy[:60], plap[:60]
     total = len(ccgp) + len(ggzy) + len(plap)
