@@ -23,6 +23,10 @@ v3.8（2026-09-25）：
   - 新增正文内容匹配（政采）：标题未命中时，进一步抓取公告正文（read-value 接口）做关键词匹配，命中标记「（正文）」
   - 正文命中准入：≥2 个不同关键词，或单一强信号词（弱电/安防/监控等），降低误报
   - 上限保护：每轮最多检查 35 条候选正文（按公告类型优先级排序），失败自动跳过
+v3.9（2026-09-25）：
+  - 正文内容匹配扩展至：军队采购网（regionCode=370000 枚举、仅山东；详情页正文）与青岛市公共资源交易网（getZTBDataInfo 接口 htmlcontent）
+  - 军采枚举上限 12 页（20条/页）、正文检查上限 22 条；公资正文检查上限 18 条
+  - 命中标记与准入规则与政采一致（「（正文）」、≥2 词或单一强信号词）
 """
 import json, os, re, sys, time, ssl, subprocess, datetime as dt
 import urllib.parse as up
@@ -131,6 +135,23 @@ def fetch_ccgp_content(idstr):
                 for v in o: walk(v)
         walk(j)
         return strip_html((core or {}).get("value") or "")
+    except Exception:
+        return ""
+
+# v3.9 正文匹配：公资（getZTBDataInfo 接口）与军采参数
+CONTENT_CAP_GGZY = 18          # 公资每轮正文检查上限
+CONTENT_CAP_PLAP = 22          # 军采每轮正文检查上限
+PLAP_ENUM_PAGES = 12           # 军采山东枚举页数上限（20 条/页）
+GGZY_API = "http://27.223.98.164:10000/ztbservice/web/web/getZTBDataInfo"
+
+def fetch_ggzy_content(class_id, keyguid):
+    """取公资公告正文（htmlcontent），失败返回空串"""
+    try:
+        body = json.dumps({"classId": str(class_id), "keyguid": keyguid}).encode()
+        txt = fetch(GGZY_API, data=body, headers={"Content-Type": "application/json"}, timeout=12)
+        j = json.loads(txt)
+        if j.get("code") != 0: return ""
+        return strip_html((j.get("data") or {}).get("htmlcontent") or "")
     except Exception:
         return ""
 
@@ -258,6 +279,7 @@ def fetch_ccgp():
 def fetch_ggzy():
     items, err = [], None
     try:
+        cand = []
         for pi in range(1, GGZY_PAGES + 1):
             html = fetch(f"https://ggzy.qingdao.gov.cn/Tradeinfo-GGGSList/0-0-0?pageIndex={pi}")
             oldest = None
@@ -269,20 +291,52 @@ def fetch_ggzy():
                 if not d: continue
                 ds = d.group(1); oldest = ds
                 if ds < CUTOFF.strftime("%Y-%m-%d"): continue
-                h = hits(a.group(2))
-                if not h: continue
                 href = a.group(1).replace("&amp;", "&")
+                title = a.group(2).strip()
+                cls_id, kg = "", ""
                 if "webTransaction/Announcement/details" in href:
-                    q = href.split("?", 1)[1] if "?" in href else ""
-                    url = "https://ggzy.qingdao.gov.cn/webTransaction/Announcement/details?" + q
+                    q = href.split("?", 1) if "?" in href else ["", ""]
+                    qs = q[1] if len(q) > 1 else ""
+                    url = "https://ggzy.qingdao.gov.cn/webTransaction/Announcement/details?" + qs
+                    m_c = re.search(r"classId=([^&]+)", qs)
+                    m_k = re.search(r"keyguid=([^&]+)", qs)
+                    cls_id = m_c.group(1) if m_c else ""
+                    kg = m_k.group(1) if m_k else ""
                 else:
                     url = "https://ggzy.qingdao.gov.cn" + href
-                items.append({"title": a.group(2).strip(),
+                h = hits(title)
+                if not h:
+                    if kg: cand.append((ds, title, cls_id, kg, url))
+                    continue
+                items.append({"title": title,
                               "url": url,
                               "date": ds[5:], "area": "青岛",
-                              "kw": "+".join(h), "type": ptype(a.group(2))})
+                              "kw": "+".join(h), "type": ptype(title)})
             if not TEST_MODE and oldest and oldest < CUTOFF.strftime("%Y-%m-%d"): break
             time.sleep(0.8)
+        # v3.9 正文内容匹配（公资）：候选调 getZTBDataInfo 取 htmlcontent
+        if not TEST_MODE and cand:
+            seen_c = set(); checked = 0
+            def _gprio(x):
+                ty = ptype(x[1])
+                if "招标" in ty: return 0
+                if "更正" in ty: return 1
+                if any(k in ty for k in ("中标", "成交", "结果")): return 2
+                return 3
+            for ds, title, cls_id, kg, url in sorted(sorted(cand, key=lambda x: x[0], reverse=True), key=_gprio):
+                if checked >= CONTENT_CAP_GGZY: break
+                kk = re.sub(r"\s+", "", title)
+                if kk in seen_c: continue
+                seen_c.add(kk)
+                if NOISE_RE.search(title): continue
+                checked += 1
+                time.sleep(0.35)
+                body = fetch_ggzy_content(cls_id, kg)
+                if not body: continue
+                h = hits(body)
+                if h and content_ok(h):
+                    items.append({"title": title, "url": url, "date": ds[5:], "area": "青岛",
+                                  "kw": "+".join(h) + "（正文）", "type": ptype(title)})
     except Exception as e:
         err = f"{type(e).__name__}: {e}"
         if "unreachable" in str(e) or "timed out" in str(e): err += "（疑似网络受限）"
@@ -321,13 +375,64 @@ def fetch_plap():
                 page += 1
                 time.sleep(0.4)
             time.sleep(0.5)
+        # v3.9 正文内容匹配（军采·仅山东）：regionCode=370000 枚举最新，未命中标题的抓详情页再匹配
+        if not TEST_MODE:
+            cand = []
+            try:
+                for pg in range(1, PLAP_ENUM_PAGES + 1):
+                    u2 = (PLAP + "/freecms-glht/rest/v1/notice/selectInfoMoreChannel.do"
+                          "?&siteId=404bb030-5be9-4070-85bd-c94b1473e8de&channel=c5bff13f-21ca-4dac-b158-cb40accd3035"
+                          "&currPage=" + str(pg) + "&pageSize=20&noticeType=&regionCode=370000&title=")
+                    d2 = json.loads(fetch(u2))
+                    rows2 = d2.get("data") or []
+                    if not rows2: break
+                    fresh = False
+                    for r in rows2:
+                        t = parse_time(r.get("noticeTime"))
+                        if not t or t < CUTOFF: continue
+                        fresh = True
+                        region = r.get("regionName") or ""
+                        if "山东" not in region and "青岛" not in region: continue
+                        tt = (r.get("title") or "").strip()
+                        if hits(tt): continue
+                        hp2 = r.get("htmlpath") or ""
+                        if hp2.startswith("/site/"): hp2 = "/freecms" + hp2
+                        cand.append((t, tt, region or "山东省", PLAP + hp2 if hp2.startswith("/") else hp2))
+                    if not fresh: break
+                    time.sleep(0.4)
+            except Exception:
+                pass
+            seen_c = set(); checked = 0
+            def _pprio(x):
+                ty = ptype(x[1])
+                if "意向" in ty: return 0
+                if "需求" in ty: return 1
+                if "招标" in ty or ty == "采购公告": return 2
+                if "更正" in ty: return 3
+                return 4
+            for t, tt, region, u3 in sorted(sorted(cand, key=lambda x: x[0], reverse=True), key=_pprio):
+                if checked >= CONTENT_CAP_PLAP: break
+                kk = re.sub(r"\s+", "", tt)
+                if kk in seen_c: continue
+                seen_c.add(kk)
+                if NOISE_RE.search(tt): continue
+                checked += 1
+                try:
+                    time.sleep(0.35)
+                    body = strip_html(fetch(u3, timeout=12))
+                except Exception:
+                    continue
+                h = hits(body)
+                if h and content_ok(h):
+                    items.append({"title": tt, "url": u3, "date": t.strftime("%m-%d %H:%M"),
+                                  "area": region, "kw": h, "via": "内容", "type": ptype(tt)})
         merged = {}
         for it in items:
             k = it["url"]
             if k in merged: merged[k]["kw"] = sorted(set(merged[k]["kw"] + it["kw"]))
             else: merged[k] = it
         items = sorted(merged.values(), key=lambda x: x["date"], reverse=True)
-        for it in items: it["kw"] = "+".join(it["kw"])
+        for it in items: it["kw"] = "+".join(it["kw"]) + ("（正文）" if it.pop("via", None) == "内容" else "")
     except Exception as e:
         err = f"{type(e).__name__}: {e}"
         if "unreachable" in str(e) or "timed out" in str(e): err += "（疑似网络受限）"
