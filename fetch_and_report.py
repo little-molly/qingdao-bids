@@ -19,6 +19,10 @@ v3.7.3（2026-09-25）：
   - 恢复跨天去重：每条公告只进一次日报/推送（按标题匹配，含跨栏目副本），消灭“同一条目多天重复推送”
   - 新增杂讯过滤：行政/服务类（保险、复印纸等）与弱相关语境（“数字化”误命中医疗/材料类）
   - 本地标记修正：“市级”区域也计入本地商机
+v3.8（2026-09-25）：
+  - 新增正文内容匹配（政采）：标题未命中时，进一步抓取公告正文（read-value 接口）做关键词匹配，命中标记「（正文）」
+  - 正文命中准入：≥2 个不同关键词，或单一强信号词（弱电/安防/监控等），降低误报
+  - 上限保护：每轮最多检查 35 条候选正文（按公告类型优先级排序），失败自动跳过
 """
 import json, os, re, sys, time, ssl, subprocess, datetime as dt
 import urllib.parse as up
@@ -46,7 +50,7 @@ KEYWORDS = load_keywords()
 WINDOW_HOURS = 48              # 统计窗口：48 小时（2026-09-07 按需求调整）
 GGZY_PAGES = 8                 # 公资交易列表分页数（每页约 8-10 条）
 PLAP_MAX_PAGES = 3             # 军采逐词检索最多翻页数（每页 20 条）
-CCGP_SWEEP = ("采购", "项目", "公告", "工程", "设备", "服务", "公示", "意向")   # v3.7.2 政采补充扫描词（拉最新列表，防检索索引漏召回）
+CCGP_SWEEP = ("采购", "项目", "公告", "工程", "设备", "服务", "公示", "意向", "改造", "建设", "中心", "学校", "医院")   # v3.7.2/3.8 政采补充扫描词（拉最新列表：防检索索引漏召回 + 为正文匹配提供候选）
 ISSUE_BASE = dt.date(2026, 9, 4)   # 第一期日期（用于期数推算）
 RETENTION_DAYS = 90                # 数据保留期：三个月，超期自动清理（去重记录/历史日报页/历史报告）
 CTX = ssl.create_default_context(); CTX.check_hostname = False; CTX.verify_mode = ssl.CERT_NONE
@@ -95,6 +99,40 @@ def drop_noise(items):
         if kws and set(kws) <= {"数字化"} and WEAK_CTX_RE.search(t): continue
         out.append(it)
     return out
+
+# v3.8 正文内容匹配（政采）：标题未命中时抓正文再匹配
+CONTENT_CAP_CCGP = 35          # 每轮正文检查上限（政采）
+STRONG_SINGLE = {"弱电", "安防", "监控", "安全防范", "电子警察", "门禁系统", "综合布线", "入侵报警",
+                 "电子围栏", "周界防范", "弱电工程", "系统集成", "动环", "交换机", "楼宇对讲", "停车场管理"}
+
+def content_ok(hh):
+    """正文命中准入：≥2 个不同关键词，或单一强信号词"""
+    if len(hh) >= 2: return True
+    return len(hh) == 1 and hh[0] in STRONG_SINGLE
+
+def strip_html(h):
+    h = re.sub(r"<script[\s\S]*?</script>|<style[\s\S]*?</style>", " ", h or "")
+    t = re.sub(r"<[^>]+>", " ", h)
+    t = t.replace("&nbsp;", " ").replace("&amp;", "&").replace("&#39;", "'").replace("&quot;", '"')
+    return re.sub(r"\s+", " ", t).strip()
+
+def fetch_ccgp_content(idstr):
+    """取政采公告正文（read-value 接口），失败返回空串"""
+    try:
+        txt = fetch("http://zfcg.qingdao.gov.cn:58060/api/siteservice/free/qd/site-info/read-value?id=" + quote(idstr, safe=""), timeout=10)
+        j = json.loads(txt)
+        core = None
+        def walk(o):
+            nonlocal core
+            if isinstance(o, dict):
+                if (o.get("value") or o.get("title")): core = o
+                for v in o.values(): walk(v)
+            elif isinstance(o, list):
+                for v in o: walk(v)
+        walk(j)
+        return strip_html((core or {}).get("value") or "")
+    except Exception:
+        return ""
 
 def ptype(title):
     if "采购意向" in title: return "采购意向"
@@ -147,7 +185,8 @@ def fetch_ccgp():
                               "date": t.strftime("%m-%d %H:%M"), "area": r.get("regionName") or "青岛",
                               "kw": h, "type": ptype(r["subject"])})
             time.sleep(0.5)
-        # v3.7.2 补充扫描：泛词拉最新多页列表，本地关键词+窗口过滤，并入后统一去重
+        # v3.7.2 补充扫描：泛词拉最新多页列表，本地关键词+窗口过滤；未命中标题的进入正文匹配候选池
+        cand = []
         for kw in CCGP_SWEEP:
             for pg in (1, 2):
                 try:
@@ -161,7 +200,8 @@ def fetch_ccgp():
                         t = parse_time(r.get("pdate"))
                         if not t or t < CUTOFF: continue
                         h = hits(r.get("subject") or "")
-                        if not h: continue
+                        if not h:
+                            cand.append((t, r)); continue
                         items.append({"title": r["subject"].strip(),
                                       "url": "http://www.ccgp-qingdao.gov.cn/qdsite/#/read?id=" + r["id"],
                                       "date": t.strftime("%m-%d %H:%M"), "area": r.get("regionName") or "青岛",
@@ -169,6 +209,35 @@ def fetch_ccgp():
                     time.sleep(0.4)
                 except Exception:
                     pass
+        # v3.8 正文内容匹配：候选按公告类型优先级排序，抓正文再匹配（上限 CONTENT_CAP_CCGP）
+        if not TEST_MODE:
+            seen_c = set(); checked = 0
+            def _prio(x):
+                ty = ptype((x[1].get("subject") or ""))
+                if "意向" in ty: p = 0
+                elif "需求" in ty: p = 1
+                elif "招标" in ty or ty == "采购公告": p = 2
+                elif "更正" in ty: p = 3
+                elif any(k in ty for k in ("中标", "成交", "结果", "废", "终止")): p = 4
+                else: p = 3
+                return (p, -x[0].timestamp())
+            for t, r in sorted(cand, key=_prio):
+                if checked >= CONTENT_CAP_CCGP: break
+                subj = (r.get("subject") or "").strip()
+                kk = re.sub(r"\s+", "", subj)
+                if kk in seen_c: continue
+                seen_c.add(kk)
+                if NOISE_RE.search(subj): continue
+                checked += 1
+                time.sleep(0.4)
+                body = fetch_ccgp_content(r["id"])
+                if not body: continue
+                h = hits(body)
+                if h and content_ok(h):
+                    items.append({"title": subj,
+                                  "url": "http://www.ccgp-qingdao.gov.cn/qdsite/#/read?id=" + r["id"],
+                                  "date": t.strftime("%m-%d %H:%M"), "area": r.get("regionName") or "青岛",
+                                  "kw": h, "via": "内容", "type": ptype(subj)})
         by_url = {}
         for it in items:
             k = it["url"]
@@ -180,7 +249,7 @@ def fetch_ccgp():
             if k2 in merged: merged[k2]["kw"] = sorted(set(merged[k2]["kw"] + it["kw"]))
             else: merged[k2] = it
         items = list(merged.values())
-        for it in items: it["kw"] = "+".join(it["kw"])
+        for it in items: it["kw"] = "+".join(it["kw"]) + ("（正文）" if it.pop("via", None) == "内容" else "")
     except Exception as e:
         err = f"{type(e).__name__}: {e}"
         if "unreachable" in str(e) or "timed out" in str(e): err += "（疑似网络受限）"
