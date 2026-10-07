@@ -814,7 +814,7 @@ def run():
     open(os.path.join(docs_dir, out_name), "w", encoding="utf-8").write(html_str)
     open(os.path.join(docs_dir, ("test-" if TEST_MODE else "") + dt.date.today().isoformat() + ".html"), "w", encoding="utf-8").write(html_str)
 
-    report_url = f"https://{repo.split('/')[0]}.github.io/{repo.split('/')[1]}/" + ("test.html" if TEST_MODE else "")
+    report_url = f"https://{repo.split('/')[0]}.github.io/{repo.split('/')[1]}/" + ("test.html" if TEST_MODE else (dt.date.today().isoformat() + ".html"))
     title = ("【测试】" if TEST_MODE else "") + f"青岛招采日报 {dt.date.today().strftime('%m-%d')}｜" + head
     body = (f"政采 {len(ccgp)} ｜公资 {len(ggzy)} ｜军采 {len(plap)}\n"
             + build_summary(ccgp, ggzy, plap, (e1, e2, e3))
