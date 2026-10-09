@@ -27,6 +27,9 @@ v3.9（2026-09-25）：
   - 正文内容匹配扩展至：军队采购网（regionCode=370000 枚举、仅山东；详情页正文）与青岛市公共资源交易网（getZTBDataInfo 接口 htmlcontent）
   - 军采枚举上限 12 页（20条/页）、正文检查上限 22 条；公资正文检查上限 18 条
   - 命中标记与准入规则与政采一致（「（正文）」、≥2 词或单一强信号词）
+v3.10（2026-10-09）：
+  - 修复「推送先到、当日页面尚未部署」导致的链接点开 404：改为 先 git 同步 → 轮询等当日页面上线 → 再推送（等待上限 300s）
+  - 运行日志 JSON 新增 deploy_wait（是否等到上线）/ wait_s（等待秒数）；git 同步失败时跳过等待直接推
 """
 import json, os, re, sys, time, ssl, subprocess, datetime as dt
 import urllib.parse as up
@@ -736,6 +739,21 @@ def cleanup_old_data():
     return removed
 
 # ---------- 报告/状态回传 GitHub ----------
+def wait_for_url(url, timeout=300, interval=6):
+    """轮询等待页面可访问（GitHub Pages 部署存在 30~60s 延迟，避免“推送先到、点开 404”）。
+    返回 (是否已上线, 已等待秒数)。超时返回 (False, timeout)。"""
+    t0 = time.time()
+    while True:
+        try:
+            with urlopen(Request(url, headers={"User-Agent": UA}), timeout=15, context=CTX) as r:
+                if r.status == 200:
+                    return True, round(time.time() - t0, 1)
+        except Exception:
+            pass
+        if time.time() - t0 >= timeout:
+            return False, round(time.time() - t0, 1)
+        time.sleep(interval)
+
 def sync_to_github(rep_path):
     try:
         base = BASE
@@ -820,8 +838,21 @@ def run():
             + build_summary(ccgp, ggzy, plap, (e1, e2, e3))
             + "\n（点击通知打开完整报告）")
     force = os.environ.get("FORCE_PUSH") == "1"
-    pushes = push_all(title, body, report_url) if (total or any((e1, e2, e3)) or force) else ["skip(无新增无异常)"]
+    should_push = bool(total or any((e1, e2, e3)) or force)
+    deploy_wait, wait_s = None, None
     sync = sync_to_github(rep_path)
+    if should_push:
+        # 2026-10-09 修复：先把日报同步到 GitHub 并等待当日页面上线，再发推送。
+        # 旧顺序「先推送后同步」会让消息到达时页面尚未部署，点开即 404。
+        if sync == "git:ok":
+            deploy_wait, wait_s = wait_for_url(report_url, timeout=300, interval=6)
+            if not deploy_wait:
+                log("warning: 当日页面等待上线超时（300s），仍继续推送: " + report_url)
+        else:
+            log("warning: git 同步未成功（" + str(sync) + "），跳过上线等待，仍按原逻辑推送")
+        pushes = push_all(title, body, report_url)
+    else:
+        pushes = ["skip(无新增无异常)"]
 
 
     if not TEST_MODE:
@@ -831,7 +862,7 @@ def run():
         json.dump(state, open(state_path, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     print(json.dumps({"total": total, "ccgp": len(ccgp), "ggzy": len(ggzy), "plap": len(plap),
                       "window": wtxt, "errors": [e for e in (e1, e2, e3) if e], "push": pushes,
-                      "sync": sync, "cleanup": cleaned, "report": rep_path, "sec": round(time.time() - t0, 1)}, ensure_ascii=False))
+                      "sync": sync, "deploy_wait": deploy_wait, "wait_s": wait_s, "cleanup": cleaned, "report": rep_path, "sec": round(time.time() - t0, 1)}, ensure_ascii=False))
 
 if __name__ == "__main__":
     run()
