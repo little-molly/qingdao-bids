@@ -20,7 +20,7 @@ RECV_PATH = os.path.join(BASE, "receivers.json")
 KW_PATH = os.path.join(BASE, "keywords.json")
 PORT = int(os.environ.get("ADMIN_PORT", "8787"))
 TOKEN_TTL = 7 * 24 * 3600
-TYPES = {"bark": "Bark（iOS）", "ntfy": "ntfy", "wecom": "企业微信"}
+TYPES = {"bark": "Bark（iOS）", "ntfy": "ntfy", "wecom": "企业微信", "pushplus": "PushPlus 微信推送", "dingtalk": "钉钉", "wecom_group": "企业微信客户群"}
 MAX_KW = 60
 
 TOKENS = {}
@@ -139,6 +139,9 @@ button:hover{filter:brightness(1.08)} button:active{transform:translateY(1px)}
         <div class="pill on" data-t="bark">Bark（iOS）</div>
         <div class="pill" data-t="ntfy">ntfy</div>
         <div class="pill" data-t="wecom">企业微信</div>
+        <div class="pill" data-t="pushplus">PushPlus 微信</div>
+        <div class="pill" data-t="dingtalk">钉钉</div>
+        <div class="pill" data-t="wecom_group">企微客户群</div>
       </div>
       <label for="rtarget">推送地址</label>
       <input id="rtarget" placeholder="https://api.day.app/你的key">
@@ -148,7 +151,7 @@ button:hover{filter:brightness(1.08)} button:active{transform:translateY(1px)}
     <div class="card">
       <h3>接收人列表</h3>
       <div id="rcvList"><div class="empty">加载中...</div></div>
-      <div class="hint">日报每天 08:00 会推送给列表中的全部接收人。改动即时生效，无需重启。</div>
+      <div class="hint">日报每天 11:00 会推送给列表中的全部接收人。改动即时生效，无需重启。</div>
     </div>
     <div class="card">
       <h3>监控关键词</h3>
@@ -157,7 +160,7 @@ button:hover{filter:brightness(1.08)} button:active{transform:translateY(1px)}
         <input id="kwInput" placeholder="输入新关键词，如：充电桩">
         <button class="ghost" id="kwAdd" style="min-width:96px">添加</button>
       </div>
-      <div class="hint">标题命中任一关键词即收录进日报。增删即时保存，下一次运行（每天 08:00）生效。当前 <span id="kwCount">-</span> 个。</div>
+      <div class="hint">标题命中任一关键词即收录进日报。增删即时保存，下一次运行（每天 11:00）生效。当前 <span id="kwCount">-</span> 个。</div>
     </div>
   </div>
 </div>
@@ -166,7 +169,10 @@ var curType = "bark";
 var HINTS = {
   bark: "Bark 填 App 里的示例地址到 key 为止，如 https://api.day.app/AbC123",
   ntfy: "ntfy 填订阅主题地址，如 https://ntfy.sh/qd-bid-x7k9",
-  wecom: "企业微信群机器人 Webhook 完整地址（key=... 结尾）"
+  wecom: "企业微信群机器人 Webhook 完整地址（key=... 结尾）",
+  pushplus: "PushPlus 用户 token（官网 pushplus.plus 微信登录后获取）",
+  dingtalk: "钉钉群机器人 Webhook 完整地址（access_token=... 结尾）",
+  wecom_group: "客户群 chat_id（系统默认群：wrQwirVgAAov4IrygRD0Gqx7Knv__Y6g）"
 };
 function $(id){ return document.getElementById(id); }
 function esc(s){ var d = document.createElement("div"); d.textContent = s == null ? "" : s; return d.innerHTML; }
@@ -248,6 +254,19 @@ $("kwAdd").onclick = async function(){
   saveKeywords(kws);
 };
 $("kwInput").addEventListener("keydown", function(e){ if (e.key === "Enter") $("kwAdd").click(); });
+$("addBtn").onclick = async function(){
+  var name = $("rname").value.trim();
+  var target = $("rtarget").value.trim();
+  if (!name){ showMsg("请填写名称（如：老板手机）", false); return; }
+  if (!target){ showMsg("请填写推送地址", false); return; }
+  try {
+    var r = await api("/api/receivers", {method:"POST", body:{name:name, type:curType, target:target}});
+    if (r.ok){ showMsg("✓ 已添加「" + name + "」，可在下方列表点「测试推送」验证", true); $("rname").value = ""; $("rtarget").value = ""; loadList(); }
+    else { showMsg("✗ " + (r.error || "添加失败"), false); }
+  } catch (e) { showMsg("✗ 请求失败，请重试", false); }
+};
+$("rname").addEventListener("keydown", function(e){ if (e.key === "Enter") $("addBtn").click(); });
+$("rtarget").addEventListener("keydown", function(e){ if (e.key === "Enter") $("addBtn").click(); });
 function showLogin(){ $("loginView").style.display = "block"; $("adminView").style.display = "none"; }
 function showAdmin(){ $("loginView").style.display = "none"; $("adminView").style.display = "block"; loadList(); loadKeywords(); }
 document.querySelectorAll(".types .pill").forEach(function(p){
@@ -376,7 +395,7 @@ class Handler(BaseHTTPRequestHandler):
             rcv = next((r for r in load_receivers() if r.get("id") == rid), None)
             if not rcv: return self._json(404, {"error": "接收人不存在"})
             title = "青岛招标监控 · 测试推送"
-            text = "如果你收到了这条消息，说明「" + rcv.get("name", "") + "」配置正确。完整日报每天早上 8 点推送。"
+            text = "如果你收到了这条消息，说明「" + rcv.get("name", "") + "」配置正确。完整日报每天 11:00 推送。"
             pages = "https://little-molly.github.io/qingdao-bids/"
             r = send_to(rcv, title, text, pages)
             self._json(200, {"ok": r["result"] == "ok", "name": r["name"], "result": r["result"]})
