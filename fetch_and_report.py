@@ -30,6 +30,9 @@ v3.9（2026-09-25）：
 v3.10（2026-10-09）：
   - 修复「推送先到、当日页面尚未部署」导致的链接点开 404：改为 先 git 同步 → 轮询等当日页面上线 → 再推送（等待上限 300s）
   - 运行日志 JSON 新增 deploy_wait（是否等到上线）/ wait_s（等待秒数）；git 同步失败时跳过等待直接推
+v3.11（2026-10-14）：
+  - 抓取鲁棒性：fetch() 支持瞬态失败自动重试；三大来源主抓取点重试 2 次、政采补充扫描重试 1 次（修复“连接被重置→整栏异常”）
+  - 支持环境变量 PUSH_TAG：临时为推送标题加前缀（如【修正重发】）
 """
 import json, os, re, sys, time, ssl, subprocess, datetime as dt
 import urllib.parse as up
@@ -64,15 +67,24 @@ CTX = ssl.create_default_context(); CTX.check_hostname = False; CTX.verify_mode 
 
 def log(m): print(m, file=sys.stderr, flush=True)
 
-def fetch(url, data=None, headers=None, timeout=25):
+def fetch(url, data=None, headers=None, timeout=25, retries=0):
+    """retries：瞬态失败（如连接被重置）自动重试次数；重要抓取点传 2，默认 0 保持原行为。"""
     h = {"User-Agent": UA, "Accept": "*/*"}
     if headers: h.update(headers)
-    with urlopen(Request(url, data=data, headers=h), timeout=timeout, context=CTX) as r:
-        raw = r.read()
-    for enc in ("utf-8", "gbk"):
-        try: return raw.decode(enc)
-        except Exception: pass
-    return raw.decode("utf-8", errors="replace")
+    last = None
+    for i in range(retries + 1):
+        try:
+            with urlopen(Request(url, data=data, headers=h), timeout=timeout, context=CTX) as r:
+                raw = r.read()
+            for enc in ("utf-8", "gbk"):
+                try: return raw.decode(enc)
+                except Exception: pass
+            return raw.decode("utf-8", errors="replace")
+        except Exception as e:
+            last = e
+            if i < retries:
+                time.sleep(1.5 * (i + 1))
+    raise last
 
 def parse_time(s):
     if not s: return None
@@ -198,7 +210,7 @@ def fetch_ccgp():
                                "pdates": ["", ""], "unitName": None, "projectCode": None, "agentName": None,
                                "pdateType": None, "kindOf": None, "projectType": None}).encode()
             txt = fetch("http://zfcg.qingdao.gov.cn:58060/api/siteservice/free/qd/site-info/page",
-                        data=body, headers={"Content-Type": "application/json"})
+                        data=body, headers={"Content-Type": "application/json"}, retries=2)
             for r in json.loads(txt)["data"]["data"]["records"]:
                 t = parse_time(r.get("pdate"))
                 if not t or t < CUTOFF: continue
@@ -219,7 +231,7 @@ def fetch_ccgp():
                                        "pdates": ["", ""], "unitName": None, "projectCode": None, "agentName": None,
                                        "pdateType": None, "kindOf": None, "projectType": None}).encode()
                     txt = fetch("http://zfcg.qingdao.gov.cn:58060/api/siteservice/free/qd/site-info/page",
-                                data=body, headers={"Content-Type": "application/json"})
+                                data=body, headers={"Content-Type": "application/json"}, retries=1)
                     for r in json.loads(txt)["data"]["data"]["records"]:
                         t = parse_time(r.get("pdate"))
                         if not t or t < CUTOFF: continue
@@ -284,7 +296,7 @@ def fetch_ggzy():
     try:
         cand = []
         for pi in range(1, GGZY_PAGES + 1):
-            html = fetch(f"https://ggzy.qingdao.gov.cn/Tradeinfo-GGGSList/0-0-0?pageIndex={pi}")
+            html = fetch(f"https://ggzy.qingdao.gov.cn/Tradeinfo-GGGSList/0-0-0?pageIndex={pi}", retries=2)
             oldest = None
             for seg in re.findall(r"<tr[\s\S]*?</tr>", html):
                 # v3.7.2：兼容改版后的新链接（webTransaction/Announcement/details）与旧链接（TradeDetals-ZtbShow）
@@ -355,7 +367,7 @@ def fetch_plap():
                 url = (PLAP + "/freecms-glht/rest/v1/notice/selectInfoMoreChannel.do"
                        "?siteId=404bb030-5be9-4070-85bd-c94b1473e8de&channel=c5bff13f-21ca-4dac-b158-cb40accd3035"
                        "&currPage=" + str(page) + "&pageSize=20&title=" + quote(kw))
-                d = json.loads(fetch(url))
+                d = json.loads(fetch(url, retries=2))
                 rows = d.get("data") or []
                 if not rows: break
                 oldest = None
@@ -834,6 +846,8 @@ def run():
 
     report_url = f"https://{repo.split('/')[0]}.github.io/{repo.split('/')[1]}/" + ("test.html" if TEST_MODE else (dt.date.today().isoformat() + ".html"))
     title = ("【测试】" if TEST_MODE else "") + f"青岛招采日报 {dt.date.today().strftime('%m-%d')}｜" + head
+    _tag = (os.environ.get("PUSH_TAG") or "").strip()
+    if _tag: title = _tag + title
     body = (f"政采 {len(ccgp)} ｜公资 {len(ggzy)} ｜军采 {len(plap)}\n"
             + build_summary(ccgp, ggzy, plap, (e1, e2, e3))
             + "\n（点击通知打开完整报告）")
