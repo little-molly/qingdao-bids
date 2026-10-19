@@ -1,5 +1,5 @@
 {
- "lastRun": "2026-10-17 11:00:02",
+ "lastRun": "2026-10-18 11:00:01",
  "seen": {
   "plap:httpswwwplapmilcnsitejuncaiggxxinfo20268a1d04c8a066c0fa01a06a1e43a12577html": "2026-09-04",
   "plap:httpswwwplapmilcnsitejuncaiggxxinfo20268a1d037aa061784b01a065298aab30d1html": "2026-09-04",
@@ -618,7 +618,8 @@
   "plap:信息化建设物资采购招标公告2026JWSDLCW3007": "2026-10-16",
   "plap:网络设备安全设备及安防软件等物资采购项目二次采购结果公示2026JCLIXXW1001": "2026-10-16",
   "plap:安防骨干培训服务采购项目采购结果公示2026JKELJDF4012第1包": "2026-10-17",
-  "plap:文印室改建项目需求公示2026JWSDHZW4010第1包": "2026-10-17"
+  "plap:文印室改建项目需求公示2026JWSDHZW4010第1包": "2026-10-17",
+  "ccgp:青岛市精神卫生中心LED显示屏成交公告": "2026-10-18"
  },
  "note": "seen 键格式：来源:详情URL或id；值为首次记录日期 YYYY-MM-DD；定期清理 30 天前的记录"
 }
