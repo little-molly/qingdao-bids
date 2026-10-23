@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>青岛招采日报 · 2026-10-23</title>
+<style>
+:root{
+  --bg:#f5f2ea; --surface:#fffdf7; --navy:#0d2340; --navy-deep:#0a1c33;
+  --fg:#1d2b3a; --muted:#5d6b7c; --border:#e6dfcf; --border-strong:#cfc7b0;
+  --gold:#b78f2e; --gold-ink:#7e6019;
+  --gold-soft:rgba(183,143,46,.14); --fg-soft:rgba(29,43,58,.06);
+  --hairline:rgba(245,242,234,.16);
+  --elev:0 2px 10px rgba(29,43,58,.08);
+  --font-display:'Iowan Old Style','Palatino','Songti SC','STSongti-SC','SimSun',Georgia,serif;
+  --font-body:-apple-system,BlinkMacSystemFont,'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Segoe UI',system-ui,sans-serif;
+  --font-mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+  --container:680px; --radius:12px; --ease:cubic-bezier(.2,0,0,1);
+}
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font-body);font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
+h1,h2,h3,p,dl,dd,dt{margin:0}
+a{color:inherit}
+[hidden]{display:none!important}
+::selection{background:var(--gold-soft)}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+.container{max-width:var(--container);margin-inline:auto;padding-inline:20px}
+.num{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.meta{font-size:13px;color:var(--muted)}
+/* masthead */
+.masthead{background:var(--navy);color:var(--paper,#f5f2ea);border-top:3px solid var(--gold);padding-block:clamp(34px,7vw,56px) clamp(24px,5vw,38px)}
+.masthead .container{display:flex;flex-direction:column;align-items:center;text-align:center}
+.seal{width:46px;height:46px;margin-bottom:20px}
+.mast-overline{font-size:11.5px;letter-spacing:.34em;text-indent:.34em;color:var(--gold);margin-bottom:12px;font-weight:500}
+.mast-title{font-family:var(--font-display);font-weight:600;font-size:clamp(34px,10vw,44px);line-height:1.15;letter-spacing:.09em;text-indent:.09em;display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap}
+.mast-flag{font-family:var(--font-body);font-size:12px;font-weight:600;letter-spacing:.05em;color:var(--gold-ink);background:var(--gold-soft);border:1px solid var(--gold);border-radius:999px;padding:4px 12px;text-indent:0;vertical-align:middle}
+.mast-rule{margin-block:20px;display:grid;gap:3px;width:min(320px,72%)}
+.mast-rule .rule-thick{height:2px;background:var(--gold)}
+.mast-rule .rule-thin{height:1px;background:var(--hairline)}
+.mast-meta{display:flex;flex-wrap:wrap;justify-content:center;gap:6px 14px;font-size:13px;color:var(--hairline);letter-spacing:.02em;color:rgba(245,242,234,.72)}
+.mast-meta .num{color:#f5f2ea}
+.mast-sub{margin-top:12px;font-size:13px;color:rgba(245,242,234,.72)}
+.mast-sub strong{color:var(--gold);font-weight:600}
+.masthead .container>*{animation:rise .5s var(--ease) both}
+.masthead .container>*:nth-child(2){animation-delay:.06s}
+.masthead .container>*:nth-child(3){animation-delay:.10s}
+.masthead .container>*:nth-child(4){animation-delay:.14s}
+.masthead .container>*:nth-child(5){animation-delay:.18s}
+.masthead .container>*:nth-child(6){animation-delay:.22s}
+@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+/* toolbar */
+.toolbar{position:sticky;top:0;z-index:20;background:rgba(245,242,234,.9);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.toolbar-inner{display:flex;align-items:center;justify-content:space-between;gap:20px;padding-block:12px}
+.chips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding:2px}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--fg);font-size:13.5px;letter-spacing:.02em;line-height:1.2;min-height:34px;transition:background .15s var(--ease),border-color .15s var(--ease),color .15s var(--ease)}
+.chip .chip-num{font-size:11.5px;color:var(--muted)}
+.chip:hover{border-color:var(--border-strong);background:var(--fg-soft)}
+.chip:active{transform:translateY(1px)}
+.chip.is-active{background:var(--navy);border-color:var(--navy);color:#f5f2ea}
+.chip.is-active .chip-num{color:rgba(245,242,234,.72)}
+.toolbar-meta{flex:0 0 auto;font-size:11.5px;letter-spacing:.04em}
+@media (max-width:719px){.toolbar-meta{display:none}}
+.noscript-note{margin:0;padding:10px 20px 12px;font-size:13px;color:var(--gold-ink);border-top:1px dashed var(--border)}
+/* list */
+.section{padding-block:32px 56px}
+.list-head{display:flex;align-items:baseline;justify-content:space-between;gap:20px}
+.list-head h2{font-family:var(--font-display);font-size:21px;font-weight:600;letter-spacing:.04em;line-height:1.2}
+.list-head .count{flex:0 0 auto}
+.list-lead{margin-top:12px;max-width:58ch;color:var(--muted);font-size:15px}
+.alert{margin-top:14px;padding:12px 14px;background:#f6ead8;border:1px solid var(--gold);border-radius:8px;font-size:13px;color:var(--gold-ink)}
+.tender-list{margin-top:20px;display:grid;gap:14px}
+.tender-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;transition:border-color .15s var(--ease),box-shadow .15s var(--ease)}
+.tender-card:hover{border-color:var(--border-strong);box-shadow:var(--elev)}
+.tc-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.tc-cat{display:inline-flex;align-items:center;padding:3px 10px;border:1px solid var(--border-strong);border-radius:999px;font-size:11.5px;letter-spacing:.05em;color:var(--muted);background:var(--bg)}
+.badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;font-size:11.5px;font-weight:600;letter-spacing:.04em}
+.b-zb{background:#EBF0FC;color:#1D4ED8}.b-cj{background:#EEEFF1;color:#5C626B}.b-gz{background:#FCF3E3;color:#8A5A0B}.b-fb{background:#FBEAEA;color:#A93030}.b-jg{background:#EEEFF1;color:#5C626B}
+.tc-urgent{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:999px;background:var(--gold-soft);color:var(--gold-ink);font-size:11.5px;font-weight:600;letter-spacing:.05em}
+.tc-urgent .dot{width:5px;height:5px;border-radius:999px;background:var(--gold)}
+.tc-region{margin-left:auto;display:inline-flex;align-items:center;gap:4px;font-size:11.5px;letter-spacing:.04em;color:var(--muted)}
+.tc-region svg{width:13px;height:13px}
+.tc-region.local{color:var(--gold-ink);font-weight:600}
+.tc-title{margin-top:12px;font-size:16.5px;font-weight:600;line-height:1.5;letter-spacing:.01em}
+.tc-title a{color:inherit;text-decoration:none}
+.tc-title a:hover{color:var(--navy);text-decoration:underline;text-underline-offset:3px}
+.tc-meta{margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px 18px;padding-top:12px;border-top:1px dashed var(--border)}
+.tc-meta dt{display:flex;align-items:center;gap:4px;font-size:11.5px;letter-spacing:.06em;color:var(--muted)}
+.tc-meta dt svg{width:13px;height:13px}
+.tc-meta dd{margin-top:3px;font-size:14px;color:var(--fg)}
+.kwchip{display:inline-block;font-size:11.5px;padding:2px 8px;border-radius:999px;background:var(--gold-soft);color:var(--gold-ink);font-weight:600;margin:0 4px 4px 0}
+/* empty */
+.empty{margin-top:20px;padding:56px 20px;border:1px dashed var(--border-strong);border-radius:var(--radius);text-align:center;color:var(--muted)}
+.empty svg{width:34px;height:34px;margin:0 auto 12px;color:var(--border-strong)}
+.empty-title{font-weight:600;color:var(--fg)}
+.empty p+p{margin-top:4px;font-size:13px}
+/* footer */
+.pagefoot{background:var(--navy-deep);color:var(--hairline);border-top:1px solid var(--hairline);padding-block:32px}
+.foot-brand{display:flex;align-items:center;gap:10px}
+.foot-brand .seal{width:26px;height:26px;margin:0}
+.foot-logo{font-family:var(--font-display);font-size:17px;font-weight:600;letter-spacing:.08em;color:#f5f2ea}
+.foot-tag{margin-top:8px;font-size:13px}
+.foot-base{margin-top:20px;padding-top:20px;border-top:1px solid var(--hairline);display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 16px;font-size:11.5px;color:var(--hairline);letter-spacing:.04em}
+.foot-base .num{color:#f5f2ea}
+@media (min-width:720px){.container{padding-inline:20px}.tender-card{padding:22px 24px}.section{padding-block:56px}}
+</style>
+</head>
+<body>
+<header class="masthead"><div class="container"><svg class="seal" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><circle cx="24" cy="24" r="22" fill="none" stroke="var(--gold)" stroke-width="1.4"/><circle cx="24" cy="24" r="18.5" fill="none" stroke="var(--gold)" stroke-width="0.8"/><text x="24" y="29.5" text-anchor="middle" font-size="15" letter-spacing="1" fill="var(--gold)" font-family="Iowan Old Style,Palatino,Songti SC,STSongti-SC,SimSun,Georgia,serif" font-weight="600">招采</text></svg>
+<p class="mast-overline">青岛 · 每日招采情报</p>
+<h1 class="mast-title">青岛招采日报</h1>
+<div class="mast-rule" aria-hidden="true"><span class="rule-thick"></span><span class="rule-thin"></span></div>
+<div class="mast-meta"><span><span class="num">2026年10月23日</span> 星期五</span><span>总第 <span class="num">50</span> 期</span></div>
+<p class="mast-sub">本次收录 <strong class="num">6</strong> 条招采动态 · 命中关键词 <strong class="num">43</strong> 个 · 每日 <span class="num">11:00</span> 更新</p>
+</div></header>
+<div class="toolbar"><div class="container toolbar-inner"><div class="chips" role="group" aria-label="按来源筛选">
+<button class="chip is-active" type="button" data-filter="all" aria-pressed="true">全部 <span class="chip-num num">6</span></button>
+<button class="chip" type="button" data-filter="ccgp" aria-pressed="false">政采网 <span class="chip-num num">1</span></button>
+<button class="chip" type="button" data-filter="ggzy" aria-pressed="false">公资网 <span class="chip-num num">0</span></button>
+<button class="chip" type="button" data-filter="plap" aria-pressed="false">军采网 <span class="chip-num num">5</span></button>
+</div><span class="toolbar-meta meta">更新于 <span class="num">11:00</span></span></div>
+<noscript><p class="noscript-note">分类筛选需要启用 JavaScript；公告列表可直接滚动阅读。</p></noscript></div>
+<main id="content"><section class="section"><div class="container">
+<div class="list-head"><h2>招采动态</h2><span class="count meta">共 <span id="visibleCount" class="num" aria-live="polite">6</span> 条 · 按发布时间排序</span></div>
+<p class="list-lead">本页收录近 2 天内命中监控关键词的招采动态 6 条：政采网 1 条、公资网 0 条、军采网 5 条（军采网仅保留山东省内项目）；本地商机已用金色标签标出。</p>
+<div class="tender-list" id="tenderList">
+<article class="tender-card" data-src="ccgp">
+<header class="tc-head"><span class="tc-cat">政采网</span><span class="badge b-zb">招标公告</span><span class="tc-urgent"><span class="dot" aria-hidden="true"></span>本地商机</span><span class="tc-region local"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M12 21s-6-5.1-6-10a6 6 0 1 1 12 0c0 4.9-6 10-6 10z"/><circle cx="12" cy="11" r="2.2"/></svg>市级</span></header>
+<h3 class="tc-title"><a href="http://www.ccgp-qingdao.gov.cn/qdsite/#/read?id=BKwtEJ-gkja8aKHQcLFVcWk2za6U3lyxCdS8G7bI7b6kmJ8wFYVxMdyw59itrIUGYvOSFK6vMzvz8GuJ8IzK58RigSTyr5Mdqnh_LZTAXIshE8KjQzMvaGB1bN5OVQ1hNxkIXSJO_JOw3w==" target="_blank" rel="noopener">青岛市精神卫生中心数字化心理治疗服务采购项目 二次招标公开招标公告</a></h3>
+<dl class="tc-meta"><div><dt><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>发布时间</dt><dd class="num">10-22 19:08</dd></div><div><dt><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.2"/></svg>命中关键词</dt><dd><span class="kwchip">数字化</span></dd></div></dl>
+</article>
+<article class="tender-card" data-src="plap">
+<header class="tc-head"><span class="tc-cat">军采网</span><span class="badge b-zb">招标公告</span><span class="tc-urgent"><span class="dot" aria-hidden="true"></span>本地商机</span><span class="tc-region local"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M12 21s-6-5.1-6-10a6 6 0 1 1 12 0c0 4.9-6 10-6 10z"/><circle cx="12" cy="11" r="2.2"/></svg>山东省</span></header>
+<h3 class="tc-title"><a href="https://www.plap.mil.cn/freecms/site/juncai/ggxx/info/2026/8a1d0359a158351801a15c03d6193afe.html" target="_blank" rel="noopener">2026年安全设施整修工程招标公告（2026-JQSCQD-G1026）</a></h3>
+<dl class="tc-meta"><div><dt><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>发布时间</dt><dd class="num">10-22 18:10</dd></div><div><dt><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.2"/></svg>命中关键词</dt><dd><span class="kwchip">机房</span><span class="kwchip">系统集成（正文）</span></dd></div></dl>
+</article>
+<article class="tender-card" data-src="plap">
+<header class="tc-head"><span class="tc-cat">军采网</span><span class="badge b-zb">招标公告</span><span class="tc-urgent"><span class="dot" aria-hidden="true"></span>本地商机</span><span class="tc-region local"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M12 21s-6-5.1-6-10a6 6 0 1 1 12 0c0 4.9-6 10-6 10z"/><circle cx="12" cy="11" r="2.2"/></svg>山东省</span></header>
+<h3 class="tc-title"><a href="https://www.plap.mil.cn/freecms/site/juncai/ggxx/info/2026/8a1d02e3a15f541d01a162850d422587.html" target="_blank" rel="noopener">电子围栏采购项目招标公告(2026-JKELGM-W4047)</a></h3>
+<dl class="tc-meta"><div><dt><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>发布时间</dt><dd class="num">10-22 17:55</dd></div><div><dt><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.2"/></svg>命中关键词</dt><dd><span class="kwchip">电子围栏</span></dd></div></dl>
+</article>
+<article class="tender-card" data-src="plap">
+<header class="tc-head"><span class="tc-cat">军采网</span><span class="badge b-gz">更正公告</span><span class="tc-urgent"><span class="dot" aria-hidden="true"></span>本地商机</span><span class="tc-region local"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M12 21s-6-5.1-6-10a6 6 0 1 1 12 0c0 4.9-6 10-6 10z"/><circle cx="12" cy="11" r="2.2"/></svg>山东省</span></header>
+<h3 class="tc-title"><a href="https://www.plap.mil.cn/freecms/site/juncai/ggxx/info/2026/8a1d04a1a15f542601a16102849f02de.html" target="_blank" rel="noopener">某单位机架式服务器、国产化电脑采购项目更正公告(第二次)(2026-JKELQH-W4009)(第1包)</a></h3>
+<dl class="tc-meta"><div><dt><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>发布时间</dt><dd class="num">10-22 16:03</dd></div><div><dt><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.2"/></svg>命中关键词</dt><dd><span class="kwchip">服务器</span></dd></div></dl>
+</article>
+<article class="tender-card" data-src="plap">
+<header class="tc-head"><span class="tc-cat">军采网</span><span class="badge b-fb">废标公示</span><span class="tc-urgent"><span class="dot" aria-hidden="true"></span>本地商机</span><span class="tc-region local"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M12 21s-6-5.1-6-10a6 6 0 1 1 12 0c0 4.9-6 10-6 10z"/><circle cx="12" cy="11" r="2.2"/></svg>山东省</span></header>
+<h3 class="tc-title"><a href="https://www.plap.mil.cn/freecms/site/juncai/ggxx/info/2026/8a1d0363a15f542c01a160d35a62005c.html" target="_blank" rel="noopener">租赁2026年天网社会面监控线路废标公示（2026-JWSDLC-F3006）</a></h3>
+<dl class="tc-meta"><div><dt><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>发布时间</dt><dd class="num">10-22 15:08</dd></div><div><dt><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.2"/></svg>命中关键词</dt><dd><span class="kwchip">监控</span></dd></div></dl>
+</article>
+<article class="tender-card" data-src="plap">
+<header class="tc-head"><span class="tc-cat">军采网</span><span class="badge b-zb">采购公告</span><span class="tc-urgent"><span class="dot" aria-hidden="true"></span>本地商机</span><span class="tc-region local"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M12 21s-6-5.1-6-10a6 6 0 1 1 12 0c0 4.9-6 10-6 10z"/><circle cx="12" cy="11" r="2.2"/></svg>山东省</span></header>
+<h3 class="tc-title"><a href="https://www.plap.mil.cn/freecms/site/juncai/ggxx/info/2026/8a1d0363a15f542c01a1615838760aaa.html" target="_blank" rel="noopener">超融合服务器软硬件项目取消公示（2025-JLBTYW-W3011）</a></h3>
+<dl class="tc-meta"><div><dt><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>发布时间</dt><dd class="num">10-22 14:19</dd></div><div><dt><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.2"/></svg>命中关键词</dt><dd><span class="kwchip">服务器</span></dd></div></dl>
+</article>
+</div>
+<div class="empty" id="emptyState" role="status" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3M8.2 11h5.6"/></svg><p class="empty-title">该分类下暂无公告</p><p>可切换其他类型查看，或明天 11:00 再来看更新。</p></div>
+</div></section></main>
+<footer class="pagefoot"><div class="container"><div class="foot-brand"><svg class="seal" width="26" height="26" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><circle cx="24" cy="24" r="22" fill="none" stroke="var(--gold)" stroke-width="1.4"/><circle cx="24" cy="24" r="18.5" fill="none" stroke="var(--gold)" stroke-width="0.8"/><text x="24" y="29.5" text-anchor="middle" font-size="15" letter-spacing="1" fill="var(--gold)" font-family="Iowan Old Style,Palatino,Songti SC,STSongti-SC,SimSun,Georgia,serif" font-weight="600">招采</text></svg><span class="foot-logo">青岛招采日报</span></div>
+<p class="foot-tag">每天 11:00，一分钟读完青岛招采动态。</p>
+<div class="foot-base"><span>© 2026 青岛招采日报</span><span>数据来源：青岛市政府采购网 · 青岛市公共资源交易网 · 军队采购网</span><span>生成于 <span class="num">2026-10-23 11:00</span>（北京）</span></div>
+<div class="foot-past meta">往期日报：<a href="2026-10-22.html">10-22</a> · <a href="2026-10-21.html">10-21</a> · <a href="2026-10-20.html">10-20</a> · <a href="2026-10-19.html">10-19</a> · <a href="2026-10-18.html">10-18</a> · <a href="2026-10-17.html">10-17</a> · <a href="2026-10-16.html">10-16</a> · <a href="2026-10-15.html">10-15</a> · <a href="2026-10-14.html">10-14</a> · <a href="2026-10-13.html">10-13</a> · <a href="2026-10-12.html">10-12</a> · <a href="2026-10-11.html">10-11</a> · <a href="2026-10-10.html">10-10</a> · <a href="2026-10-09.html">10-09</a> · <a href="2026-10-08.html">10-08</a> · <a href="2026-10-07.html">10-07</a> · <a href="2026-10-06.html">10-06</a> · <a href="2026-10-05.html">10-05</a> · <a href="2026-10-04.html">10-04</a> · <a href="2026-10-03.html">10-03</a> · <a href="2026-10-02.html">10-02</a> · <a href="2026-10-01.html">10-01</a> · <a href="2026-09-30.html">09-30</a> · <a href="2026-09-29.html">09-29</a> · <a href="2026-09-28.html">09-28</a> · <a href="2026-09-27.html">09-27</a> · <a href="2026-09-26.html">09-26</a> · <a href="2026-09-25.html">09-25</a> · <a href="2026-09-24.html">09-24</a> · <a href="2026-09-23.html">09-23</a></div>
+</div></footer>
+<script>(function(){var chips=Array.prototype.slice.call(document.querySelectorAll(".chip"));var cards=Array.prototype.slice.call(document.querySelectorAll(".tender-card"));var countEl=document.getElementById("visibleCount");var empty=document.getElementById("emptyState");chips.forEach(function(chip){chip.addEventListener("click",function(){chips.forEach(function(c){var a=c===chip;c.classList.toggle("is-active",a);c.setAttribute("aria-pressed",a?"true":"false");});var f=chip.getAttribute("data-filter");var v=0;cards.forEach(function(card){var s=f==="all"||card.getAttribute("data-src")===f;card.hidden=!s;if(s)v+=1;});countEl.textContent=String(v);empty.hidden=v>0;});});})();</script>
+</body>
+</html>
