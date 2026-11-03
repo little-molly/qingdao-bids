@@ -1,5 +1,5 @@
 {
- "lastRun": "2026-11-01 11:00:02",
+ "lastRun": "2026-11-02 11:00:02",
  "seen": {
   "plap:httpswwwplapmilcnsitejuncaiggxxinfo20268a1d04c8a066c0fa01a06a1e43a12577html": "2026-09-04",
   "plap:httpswwwplapmilcnsitejuncaiggxxinfo20268a1d037aa061784b01a065298aab30d1html": "2026-09-04",
@@ -700,7 +700,9 @@
   "plap:安防升级改造项目二次招标公告2026JLBTPWW4009": "2026-10-31",
   "plap:某单位广播系统项目招标公告招标公告2026JHLZZCG1011": "2026-10-31",
   "plap:信息安全设备存储设备等计算机设备及软件采购项目采购结果公示2026JH10W1006第1包": "2026-10-31",
-  "plap:某信息系统云桌面招标公告2026JLBTHZW3008": "2026-11-01"
+  "plap:某信息系统云桌面招标公告2026JLBTHZW3008": "2026-11-01",
+  "plap:国产服务器采购项目招标公告2026JKELWHW4025": "2026-11-02",
+  "plap:某系统服务器采购招标公告2026JLBTLLW4031": "2026-11-02"
  },
  "note": "seen 键格式：来源:详情URL或id；值为首次记录日期 YYYY-MM-DD；定期清理 30 天前的记录"
 }
